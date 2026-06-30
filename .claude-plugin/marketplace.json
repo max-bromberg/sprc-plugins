@@ -1,0 +1,17 @@
+{
+  "name": "sprc-lab",
+  "owner": {
+    "name": "Max Bromberg"
+  },
+  "metadata": {
+    "description": "Internal Claude Code plugins for the lab's sprc HPC cluster.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "sprc-slurm",
+      "source": "./plugins/sprc-slurm",
+      "description": "How to run computational work on the lab's sprc H100 Slurm cluster (controller sprlab005): stage and submit sbatch jobs, interactive salloc GPU sessions, choosing QoS/walltime, and monitoring/debugging — execute-first."
+    }
+  ]
+}

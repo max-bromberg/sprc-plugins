@@ -1,0 +1,93 @@
+# `sprc` cluster facts — the source-of-truth numbers
+
+Quote limits/defaults from here, not from memory. Verify against the live controller when it matters
+(`scontrol show config`, `sacctmgr show qos`, `scontrol show node`) — config can drift from this snapshot.
+
+## Hardware
+
+- **4 compute nodes:** `sprc[00-03]`.
+- **Per node:** 2× H100-NVL (94 GB, NVLink-paired) · 2× AMD EPYC 9334 (32 cores/socket → **64
+  physical cores**, SMT on → **128 logical CPUs**) · ~1.5 TB RAM · InfiniBand.
+- **Cluster total schedulable:** **8 GPUs, 256 physical cores (512 logical CPUs), ~6 TB RAM.**
+- **GRES name:** `gpu:h100_nvl:2` per node. Node features: `nvlink,h100,epyc9334`.
+- **Controller / login node:** `sprlab005` (Ubuntu 24.04, Slurm **23.11.4**, munge 0.5.15, cgroup v2).
+  This host is login + control plane + accounting. Do not run compute on it.
+
+## Slurm CPU vs. physical core
+
+SMT is on (`ThreadsPerCore=2`): **1 physical core = 2 Slurm CPUs**. All `--cpus-*` flags and the
+defaults below are in **Slurm CPUs**. So "32 CPUs" = 16 physical cores.
+
+## Allocation defaults (what a job gets if it doesn't ask)
+
+| Resource | Default | Notes |
+|---|---|---|
+| GPU | **none** | Must request `--gres=gpu:N` (or `--gpus=N`). No auto-assign. |
+| CPU (GPU job) | **32 Slurm CPUs per GPU** (16 physical cores) | `DefCpuPerGPU=32`. |
+| CPU (CPU-only job) | **4 Slurm CPUs** (2 physical cores) | Floor applied by `job_submit.lua` when no GPU is requested. |
+| Memory | **12 GB per allocated CPU** (`DefMemPerCPU=12000`) | Scales with CPU count. |
+
+Representative results:
+- 1-GPU job → 32 CPU → **~384 GB**.
+- 2-GPU job → 64 CPU → **~768 GB** (fills one node).
+- CPU-only job → 4 CPU → **~48 GB**.
+
+Note: a node can't *default*-pack all 128 CPUs at 12 GB each (would need 1,536 GB > 1,500 GB RealMemory).
+Never bites in practice because realistic packing is GPU-bound. For big CPU-only jobs set `--mem` explicitly.
+
+## QoS tiers
+
+A higher tier always outranks a lower one in the queue; fair-share and wait-time only order peers
+*within* the same tier.
+
+| QoS | Priority | MaxWall | MaxGPU/user | MaxSubmit/user | Preempts | Preemptable by | Self-serve? |
+|---|---|---|---|---|---|---|---|
+| `expedite` | 1000 | 24 h | 4 | — | scavenger | — | **No** — sysadmin grants per-user, auto-expires |
+| `normal` (grad default) | 500 | 3 days | 4 | 500 | scavenger | — | Yes |
+| `undergrad` (ug default) | 400 | 1 day | 2 | 200 | scavenger | — | Yes |
+| `scavenger` | 1 | 1 day | 8 | 500 | — | everyone (REQUEUE) | Yes (`--qos=scavenger`) |
+
+- **Preemption is REQUEUE, never CANCEL**, and only `scavenger` is ever preempted. `normal`,
+  `undergrad`, `expedite` are never auto-killed. A requeued scavenger job restarts from scratch
+  (hence: checkpoint).
+- A fresh scavenger job gets a ~10-minute grace period before it can be preempted.
+
+## Account / tier mapping
+
+| Account | Default QoS | Also has | Per-user GPU cap |
+|---|---|---|---|
+| `grads` | `normal` | `scavenger` (+ `expedite` while granted) | 4 (`normal`), 8 (`scavenger`) |
+| `undergrads` | `undergrad` | `scavenger` | 2 (`undergrad`), 8 (`scavenger`) |
+
+A user must be added to one of these accounts (`sacctmgr add user`) before they can submit at all.
+
+## Partitions
+
+| Partition | Default? | Nodes | MaxTime | Notes |
+|---|---|---|---|---|
+| `main` | **Yes** | sprc[00-03] | 3 days | All real work. The tier (walltime/priority) comes from your QoS, not the partition. |
+| `debug` | No | sprc[00-03] | 1 hour | `-p debug`. Higher `PriorityTier` (jumps the *pending* queue, does **not** preempt). For quick sanity checks. Research accounts only. |
+
+There is intentionally **no** `interactive`/`batch`/`long` partition — walltime is a property of the
+**QoS**, controlled with `--time` (and optionally `--qos`), not `-p batch`/`-p long`. (A cluster still
+mid-migration may transiently show the old partitions; the target posture is `main` + `debug`.)
+
+## Scheduling behavior worth knowing (for answering "why")
+
+- **Backfill scheduler:** an accurate short `--time` lets a job slip ahead of bigger ones — so an
+  honest walltime helps *you* start sooner. Padding it hurts you.
+- **GPU-weighted fair-share:** holding a GPU (even an idle one) is what costs your future priority,
+  far more than CPUs — recent usage decays over ~a week. This is why releasing idle allocations and
+  using `scavenger` for bulk work keeps you in good standing.
+- **Preemption is requeue-only and only touches `scavenger`** — a preempted scavenger job restarts
+  from scratch, which is why it must checkpoint.
+
+## Resource isolation
+
+A job (and an SSH session adopted onto its node) sees only its allocated GPUs/cores/RAM — nothing
+leaks between jobs sharing a node. That's why `nvidia-smi` inside a job shows exactly what you asked
+for, and why you can't SSH to a node you hold no allocation on.
+
+> The exact scheduler weights, billing config, cgroup/PAM plugin settings, and partition/QoS
+> internals live in the lab's admin doc `SlurmPolicies.md`, not here — this reference is for getting
+> a researcher's job placed correctly, not for tuning the policy.
