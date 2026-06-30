@@ -155,6 +155,26 @@ common: `Priority`/`Resources` = just waiting; `QOSMaxGRESPerUser` = at your per
 checkpoint; OOM = raise `--mem`. The full error→cause→fix table is `references/troubleshooting.md` —
 consult it for anything non-obvious, and explain to the user only what they need.
 
+## Email notifications (opt-in)
+
+Slurm emails **nothing by default** — it's per-job opt-in. To notify the user about a job, add:
+
+```bash
+#SBATCH --mail-type=END,FAIL        # events: BEGIN, END, FAIL, ALL, TIME_LIMIT_90 …
+#SBATCH --mail-user=<netid>         # bare netid is enough → <netid>@illinois.edu
+```
+
+- **Bare netid works** — the cluster qualifies it to `<netid>@illinois.edu` (their campus inbox); a
+  full address (internal or external) is fine too.
+- **If their login name isn't their netid, set `--mail-user` explicitly.** Omitting it defaults the
+  recipient to `<login>@illinois.edu`, which for those users isn't a real mailbox — the mail is then
+  silently dropped (no error, job runs normally). Flag this rather than let it bite them.
+- **Off** = omit `--mail-type` (already the default), or `--mail-type=NONE` to override one baked into
+  a script.
+- For a sweep/array, `--mail-type=ALL` floods the inbox (one mail per state change per task) — prefer
+  `FAIL` only, or skip mail and rely on the background watch above.
+- Mail comes from `no-reply@illinois.edu` ("SPRC Cluster") — send-only, replies go nowhere.
+
 ## Where you're running, and the references
 
 - **On `sprlab005`**: commands run directly; files live on the shared FS the compute nodes also see.

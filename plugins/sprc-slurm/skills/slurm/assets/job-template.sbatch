@@ -20,6 +20,8 @@
 # #SBATCH --mem=64G                # only if default per-CPU memory is wrong for you
 # #SBATCH --qos=scavenger          # opportunistic idle-GPU soak; preemptible — REQUIRES checkpointing
 # #SBATCH --partition=debug        # 1-hour quick sanity checks that jump the queue
+# #SBATCH --mail-type=END,FAIL     # email on end/failure (omit = no mail). Events: BEGIN,END,FAIL,ALL
+# #SBATCH --mail-user=netid        # bare netid -> netid@illinois.edu; set explicitly if your login != netid
 
 set -euo pipefail
 
