@@ -1,5 +1,5 @@
 {
-  "name": "sprc-lab",
+  "name": "sprc-plugins",
   "owner": {
     "name": "Max Bromberg"
   },
@@ -11,7 +11,7 @@
     {
       "name": "sprc-slurm",
       "source": "./plugins/sprc-slurm",
-      "description": "How to run computational work on the lab's sprc H100 Slurm cluster (controller sprlab005): stage and submit sbatch jobs, interactive salloc GPU sessions, choosing QoS/walltime, and monitoring/debugging — execute-first."
+      "description": "How to run computational work on the lab's sprc H100 Slurm cluster (controller sprlab005): stage and submit sbatch jobs, interactive salloc GPU sessions, choosing QoS/walltime, and monitoring/debugging \u2014 execute-first."
     }
   ]
 }
