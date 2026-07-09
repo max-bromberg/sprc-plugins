@@ -1,23 +1,17 @@
 ---
 name: slurm
 description: >-
-  How to run computational work on the lab's `sprc` H100 GPU cluster (controller/login node
-  `sprlab005`) using Slurm — staging and submitting `sbatch` jobs, launching interactive `salloc`
-  GPU sessions and SSHing onto compute nodes, choosing GPUs/CPUs/memory, walltime, and the right QoS
-  tier (`normal`/`undergrad`/`expedite`/`scavenger`), and monitoring/debugging jobs. Use this to
-  actually GET WORK RUNNING on the cluster, not just to explain it. Reach for it whenever the user
-  wants to run, submit, schedule, queue, launch, dispatch, or kick off a job; train, test,
-  benchmark, profile, fine-tune, or sweep code on a GPU or node; grab / allocate a node or "a GPU";
-  iterate on or check up on a long-running experiment; troubleshoot a pending, stuck, failed, or
-  queued job; or wonders which partition / QoS / walltime to use — especially anything mentioning
-  the `sprc` cluster, `sprlab005`, or `sbatch` / `salloc` / `srun` / `squeue` / `sacct` / `scancel`
-  / `sinfo` / `scavenger` / `expedite`, even if they never say the word "Slurm." If the user is on
-  this cluster and wants to run something, reach for this skill and DO IT.
-  Do NOT use it for tasks that merely share vocabulary: installing or administering Slurm itself
-  (`slurmctld`/`slurmd`/controller setup), purely conceptual "how does X work in general" questions
-  with no job to actually run here, fixing SSH/login/networking to the cluster, or work on a local
-  laptop/workstation (local GPUs, GNU `parallel`, `cron`) — those are not this cluster's
-  job-running workflow.
+  Run work on the lab's `sprc` H100 GPU cluster (login/controller `sprlab005`) via Slurm: stage and
+  submit `sbatch` jobs, open interactive `salloc` GPU sessions and SSH onto compute nodes, pick
+  GPUs/CPUs/memory, walltime, and QoS tier (`normal`/`undergrad`/`expedite`/`scavenger`), and
+  monitor/debug jobs. Use it to actually GET WORK RUNNING, not just explain it. Reach for it
+  whenever the user wants to run, submit, schedule, queue, launch, or kick off a job; train, test,
+  benchmark, profile, fine-tune, or sweep on a GPU/node; grab or allocate a node or "a GPU"; check
+  on a long run; or troubleshoot a pending/stuck/failed job — especially anything mentioning
+  `sprc`, `sprlab005`, `sbatch`/`salloc`/`srun`/`squeue`/`sacct`/`scancel`/`sinfo`/`scavenger`/`expedite`,
+  even if they never say "Slurm." Do NOT use it for administering Slurm itself
+  (`slurmctld`/`slurmd`), conceptual "how does X work" questions with no job to run, fixing
+  SSH/login/networking, or work on a local laptop (local GPUs, GNU `parallel`, `cron`).
 ---
 
 # Running work on the `sprc` cluster (Slurm)
