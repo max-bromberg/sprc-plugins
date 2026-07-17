@@ -11,7 +11,9 @@ Quote limits/defaults from here, not from memory. Verify against the live contro
 - **Cluster total schedulable:** **8 GPUs, 256 physical cores (512 logical CPUs), ~6 TB RAM.**
 - **GRES name:** `gpu:h100_nvl:2` per node. Node features: `nvlink,h100,epyc9334`.
 - **Controller / login node:** `sprlab005` (Ubuntu 24.04, Slurm **23.11.4**, munge 0.5.15, cgroup v2).
-  This host is login + control plane + accounting. Do not run compute on it.
+  This host is login + control plane + accounting. Do not run compute on it — each user is
+  **hard-capped at 8 vCPUs** here via a systemd per-user slice (`CPUQuota=800%`), so heavy local
+  work is throttled. (Admin accounts root/exx/mgmt are exempt.)
 
 ## Slurm CPU vs. physical core
 
@@ -65,12 +67,17 @@ A user must be added to one of these accounts (`sacctmgr add user`) before they 
 
 | Partition | Default? | Nodes | MaxTime | Notes |
 |---|---|---|---|---|
-| `main` | **Yes** | sprc[00-03] | 3 days | All real work. The tier (walltime/priority) comes from your QoS, not the partition. |
-| `debug` | No | sprc[00-03] | 1 hour | `-p debug`. Higher `PriorityTier` (jumps the *pending* queue, does **not** preempt). For quick sanity checks. Research accounts only. |
+| `main` | **Yes** | sprc[00-03] | 3 days | All **batch** work (`sbatch`). Batch walltime/priority comes from your QoS, not the partition. |
+| `debug` | No | sprc[00-03] | 1 hour | **Home for every interactive session** (`salloc`/`srun`) plus quick sanity checks. Higher `PriorityTier` (jumps the *pending* queue, does **not** preempt). Research accounts only. |
 
-There is intentionally **no** `interactive`/`batch`/`long` partition — walltime is a property of the
-**QoS**, controlled with `--time` (and optionally `--qos`), not `-p batch`/`-p long`. (A cluster still
-mid-migration may transiently show the old partitions; the target posture is `main` + `debug`.)
+**You do not choose the partition — `job_submit.lua` routes by job kind.** `sbatch` → `main`.
+`salloc`/`srun` (interactive) → `debug`, auto-routed, with `--time` **clamped to 1 h** as needed
+(an unset `--time` gets `debug`'s 30 min default). An interactive job that explicitly names a
+non-`debug` partition is **rejected** with a pointer to `sbatch`; an interactive `--qos=scavenger`
+is **rejected** (batch-only tier). The one exception to the 1 h interactive cap is `--qos=expedite`
+(sysadmin-granted), which is exempt and keeps its 24 h wall. Net: **interactive ≤ 1 h; anything
+longer is `sbatch` on `main`.** There is intentionally **no** `interactive`/`batch`/`long`
+partition — only `main` + `debug`.
 
 ## Scheduling behavior worth knowing (for answering "why")
 

@@ -23,9 +23,16 @@ Always **read the actual reason before changing flags**. Get it from:
 |---|---|---|
 | `Invalid account or account/partition combination` | User not onboarded (no association), or `-p`/account mismatch. | If `sacctmgr show assoc where user=$USER` is empty → ask a sysadmin to `sacctmgr add user`. Otherwise check the partition name. |
 | `Invalid qos specification` | Requested a QoS the user doesn't hold. | Drop `--qos`, or (for `expedite`) get a sysadmin grant first. |
-| `Requested time limit ... exceeds ... limit` | `--time` over the QoS/partition cap. | Lower it, or move to a higher-cap QoS. |
+| `Interactive sessions are limited to the 'debug' partition ...` | An interactive `salloc`/`srun` explicitly asked for a non-`debug` partition (e.g. `-p main`). `job_submit.lua` rejects it. | Drop `-p` (interactive auto-routes to `debug`), or — if the work needs > 1 h — make it an `sbatch` job on `main`. |
+| `scavenger is a batch/best-effort tier and cannot run interactively ...` | An interactive `salloc --qos=scavenger`. | Submit it as `sbatch --qos=scavenger` instead. |
+| `Requested time limit ... exceeds ... limit` | `--time` over the QoS/partition cap (batch). | Lower it, or move to a higher-cap QoS. |
 | `Requested GRES option unsupported` / bad `--gres` | Typo in the GRES spec. | Use `--gres=gpu:N` (or `--gpus=N`). The GRES name is `gpu` (type `h100_nvl`). |
 | `Access/permission denied` on `ssh sprcNN` | No allocation on that node (`pam_slurm_adopt`). | `salloc` first, confirm the node in `squeue --me`, then `ssh`. |
+
+> **Not an error — an interactive `--time` over 1 h.** A `salloc`/`srun` asking for more than an hour
+> is **not rejected**; `job_submit.lua` prints "Requested time exceeds the 'debug' limit; capped to 60
+> minutes" and grants a 1 h session. If the user actually needs the longer walltime, that's the signal
+> to switch to `sbatch`, not to retry.
 
 ## Failed while running
 

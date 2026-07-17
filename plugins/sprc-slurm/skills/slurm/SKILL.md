@@ -46,14 +46,19 @@ This posture is the point of the skill. Everything below is what you need to act
 These are the things a generic Slurm answer gets wrong here. Get them right silently.
 
 - **Never run real work on the login node `sprlab005`.** Anything using a GPU or sustained CPU/RAM
-  goes through `sbatch`/`salloc`. The login node is for editing, submitting, monitoring.
+  goes through `sbatch`/`salloc`. The login node is for editing, submitting, monitoring — and each
+  user is now **hard-capped at 8 vCPUs there** (systemd cgroup), so heavy local work is throttled,
+  not just frowned upon. Real compute belongs on a node.
 - **No GPU unless you ask.** Add `--gres=gpu:N` (or `--gpus=N`). CPUs and RAM then auto-derive — you
   rarely set them. Per GPU you get **32 CPUs (16 cores) + ~384 GB**; a CPU-only job floors at 4 CPUs
   (~48 GB). So usually: **request GPUs + `--time`, nothing else.**
-- **Walltime comes from `--time`, not from a partition.** There is no `-p batch`/`-p long`/`-p gpu`.
-  Partitions are only `main` (default, 3-day cap) and `debug` (`-p debug`, 1-hour, jumps the queue
-  for quick checks). Set an **honest `--time`** — short accurate walltimes backfill *sooner*, and
-  jobs are killed at the limit.
+- **Interactive vs. batch decides the partition and the walltime cap — automatically.** `sbatch`
+  runs on `main` (3-day cap). `salloc`/`srun` (interactive) are **auto-routed to `debug` and capped
+  at 1 hour** by `job_submit.lua` — you do **not** pass `-p`. Two consequences to internalize: an
+  interactive job that names a non-`debug` partition (e.g. `-p main`) is **rejected**, and an
+  interactive `--time` over 1 h is **silently clamped to 1 h**. So **anything longer than an hour
+  must be `sbatch`** — never try to hold a long `salloc`. Set an honest `--time` regardless (batch
+  backfills sooner with an accurate short walltime; jobs are killed at the limit).
 - **GPUs come from the QoS, not a partition.** Default QoS is right for almost everything; only pass
   `--qos` for the two special cases below.
 - **Allocate before you SSH to a node.** `ssh sprcNN` is *denied* without an allocation there; with
@@ -114,15 +119,19 @@ Then: `sbatch job.sbatch` → `squeue --me` (PD pending / R running / CG complet
 ## Interactive when they want to poke at a node
 
 For "give me a shell on a GPU / debug live / open a REPL": get them into an allocation, don't lecture.
+Interactive sessions are **auto-routed to `debug` and capped at 1 hour** — this is for hands-on work,
+not long runs.
 
 ```bash
-salloc --gres=gpu:1 --time=2:00:00     # interactive allocation; work here via srun, or:
+salloc --gres=gpu:1 --time=1:00:00     # interactive allocation on debug (≤1h); work here via srun, or:
 squeue --me                            # see the node (e.g. sprc02)
 ssh sprc02                             # only works because you hold an allocation there
 ```
 
-Remind them to `exit`/`scancel` when done (an idle `salloc` holds GPUs and costs fair-share). For a
-quick "does it even start" check, `-p debug` (1-hour, jumps the queue).
+Don't pass `-p main` (or any non-`debug` partition) to an interactive job — it's rejected. Don't
+request more than `--time=1:00:00` — it's clamped to the hour. **If the work needs longer than an
+hour, it isn't an interactive job — write an `sbatch` script instead** (the default path above).
+Remind them to `exit`/`scancel` when done (an idle `salloc` holds GPUs and costs fair-share).
 
 ## QoS: default is fine; deviate in two cases
 
@@ -131,8 +140,12 @@ Pass `--qos` only when one of these applies — otherwise say nothing about QoS:
 - **`--qos=scavenger`** for big *restartable* batches (sweeps, anything that checkpoints): soaks idle
   GPUs (up to all 8), lowest priority, **requeued the instant a real job needs the GPU**. The
   good-neighbor choice for bulk work — but only if it actually checkpoints. Pair with a job array.
+  **Batch only** — an interactive `salloc --qos=scavenger` is rejected; use `sbatch`.
 - **`--qos=expedite`** for a genuine deadline — but it's **sysadmin-granted per user** and not
   self-serve. If the user needs it, tell them to ask; until granted, `--qos=expedite` is rejected.
+  (It's also the one QoS exempt from the interactive 1 h cap, so a granted user's `salloc` runs its
+  full 24 h — but for long *unattended* work, `sbatch` is still the right tool; don't reach for
+  expedite just to stretch an interactive session.)
 
 ## Monitor / debug
 
